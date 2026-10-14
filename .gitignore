@@ -1,0 +1,13 @@
+.build-venv/
+build/
+dist/
+releases/
+__pycache__/
+*.pyc
+*.spec
+video/
+*.mp4
+*.wav
+*.onnx
+*.log
+shenlujian_preview.png

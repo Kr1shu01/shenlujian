@@ -1,0 +1,38 @@
+name: Build and release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build and runtime dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-venv python3-pyqt5 python3-pyqt5.qtmultimedia python3-dbus python3-gi ffmpeg gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav gstreamer1.0-pipewire desktop-file-utils x11-xserver-utils
+          /usr/bin/python3 -m venv --system-site-packages .build-venv
+          .build-venv/bin/python -m pip install pyinstaller==6.22.0
+      - name: Test
+        run: /usr/bin/python3 -m unittest test_clip_range test_audio_track test_project test_recording test_capture_geometry test_editing test_joining test_wayland
+      - name: Build packages
+        run: |
+          bash build_shenlujian.sh
+          version="${GITHUB_REF_NAME#v}"
+          if [[ "$GITHUB_REF_TYPE" != tag ]]; then version=1.1.0; fi
+          bash build_deb.sh "$version"
+          bash build_zip.sh "$version"
+          cd releases
+          sha256sum *.deb *.zip > SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shenlujian-linux-amd64
+          path: releases/*
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" releases/*.deb releases/*.zip releases/SHA256SUMS --verify-tag --title "神录剪 $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
