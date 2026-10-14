@@ -13,7 +13,7 @@ jobs:
       - name: Install build and runtime dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y python3-venv python3-pyqt5 python3-pyqt5.qtmultimedia qtwayland5 python3-dbus python3-gi ffmpeg gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav gstreamer1.0-pipewire desktop-file-utils x11-xserver-utils
+          sudo apt-get install -y python3-venv python3-pyqt5 python3-pyqt5.qtmultimedia libqt5multimedia5-plugins qtwayland5 python3-dbus python3-gi ffmpeg gir1.2-gstreamer-1.0 gir1.2-gst-plugins-base-1.0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav gstreamer1.0-pipewire desktop-file-utils x11-xserver-utils
           /usr/bin/python3 -m venv --system-site-packages .build-venv
           .build-venv/bin/python -m pip install pyinstaller==6.22.0
       - name: Test
@@ -21,8 +21,9 @@ jobs:
       - name: Build packages
         run: |
           bash build_shenlujian.sh
+          .build-venv/bin/python -c "from PyInstaller.archive.readers import CArchiveReader; names=CArchiveReader('dist/shenlujian').toc; assert any('mediaservice/libgstmediaplayer.so' in name for name in names), 'Missing playback backend'; assert any('platforms/libqwayland' in name for name in names), 'Missing Wayland plugin'"
           version="${GITHUB_REF_NAME#v}"
-          if [[ "$GITHUB_REF_TYPE" != tag ]]; then version=1.1.0; fi
+          if [[ "$GITHUB_REF_TYPE" != tag ]]; then version=1.1.1; fi
           bash build_deb.sh "$version"
           bash build_zip.sh "$version"
           cd releases
@@ -36,3 +37,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" releases/*.deb releases/*.zip releases/SHA256SUMS --verify-tag --title "神录剪 $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
+      - name: Mark superseded first package as prerelease
+        if: github.ref == 'refs/tags/v1.1.1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit v1.1.0 --prerelease --notes "此首次安装包缺少媒体播放后端，请下载 v1.1.1 或更新版本。源码不受影响。"

@@ -8,11 +8,11 @@
 在 Ubuntu 22.04 或兼容的 64 位 Debian/Ubuntu 桌面上运行：
 
 ```bash
-sudo apt install ./shenlujian_1.1.0_amd64.deb
+sudo apt install ./shenlujian_1.1.1_amd64.deb
 ```
 
 安装后在应用菜单点击「神录剪」，或在终端运行 `shenlujian`。首次安装需要联网安装系统依赖。当前二进制基于 Ubuntu 22.04 构建；其他发行版尚未验收。
-也提供 Linux ZIP，解压后按包内说明安装。源码构建需要 Python 3.10、PyQt5、PyInstaller 6.22.0；构建单文件运行 `./build_shenlujian.sh`，生成 deb 运行 `./build_deb.sh 1.1.0`。
+也提供 Linux ZIP，解压后按包内说明安装。源码构建需要 Python 3.10、PyQt5、PyInstaller 6.22.0；构建单文件运行 `./build_shenlujian.sh`，生成 deb 运行 `./build_deb.sh 1.1.1`。
 
 ## Wayland
 

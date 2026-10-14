@@ -70,7 +70,7 @@ class RecorderWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"{APP_NAME} · FFmpeg 录屏")
-        self.setWindowIcon(QIcon(str(RESOURCE_DIR / "assets/recorder.svg")))
+        self.setWindowIcon(QIcon(str(RESOURCE_DIR / "assets/shenlujian.svg")))
         self.resize(850, 1000)
         self.setMinimumSize(700, 710)
         self.wayland = os.environ.get("XDG_SESSION_TYPE")=="wayland"
