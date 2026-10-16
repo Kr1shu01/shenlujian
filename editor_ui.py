@@ -135,7 +135,7 @@ class EditorPanel(QWidget):
         self.logs.hide();footer_layout.addWidget(self.logs);self.log_button.toggled.connect(self.logs.setVisible)
 
     def import_directory(self):
-        fallback=Path(str(self.settings.value('directory',Path.home()/'ffmpeg_screen_recorder'/'video'))).expanduser()
+        fallback=Path(str(self.settings.value('directory',Path.home()/'shenlujian'/'video'))).expanduser()
         saved=Path(str(self.settings.value('editor/import_directory',fallback))).expanduser()
         return str(saved if saved.is_dir() else fallback if fallback.is_dir() else Path.home())
     def remember_directory(self,path):self.settings.setValue('editor/import_directory',str(Path(path).expanduser().resolve().parent));self.settings.sync()

@@ -274,7 +274,7 @@ class RecorderWindow(QMainWindow):
         name_row.addWidget(self.name,1); name_row.addWidget(self.timestamp)
         file_layout.addLayout(name_row)
         path_row = QHBoxLayout()
-        self.directory = QLineEdit(str(Path.home()/"ffmpeg_screen_recorder"/"video"))
+        self.directory = QLineEdit(str(Path.home()/"shenlujian"/"video"))
         browse = QPushButton("选择目录…")
         browse.clicked.connect(self.browse_directory)
         path_row.addWidget(self.directory,1); path_row.addWidget(browse)

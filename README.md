@@ -44,8 +44,8 @@ F9 开始录制；F10 停止并保存。全局快捷键在窗口最小化或其�
 安装后桌面与应用菜单的名称为“神录剪”，悬浮简介为“随手一录，轻松一剪。”。
 可执行文件：`~/.local/bin/shenlujian`。
 设置保存于：`~/.config/Codeme/shenlujian.conf`，安装更新时已迁移原录屏参数。
-项目目录：`~/ffmpeg_screen_recorder/`。
-录屏默认输出目录：`~/ffmpeg_screen_recorder/video/`；已有视频也已迁移到此处，保留原子目录。
+项目目录：`~/shenlujian/`。
+录屏默认输出目录：`~/shenlujian/video/`；已有视频也已迁移到此处，保留原子目录。
 
 重新打包：`./build_shenlujian.sh`；安装：`./install_shenlujian.sh`。
 运行依赖本机 FFmpeg，视频播放依赖 Qt / GStreamer（构建时已安装对应后端）。
