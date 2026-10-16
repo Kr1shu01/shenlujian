@@ -1,7 +1,7 @@
 import tempfile
 import unittest
 from pathlib import Path
-from recording import RecordingOptions, ffmpeg_arguments, output_path
+from app.recording.commands import RecordingOptions, ffmpeg_arguments, output_path
 
 
 class RecordingTests(unittest.TestCase):

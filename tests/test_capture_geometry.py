@@ -1,7 +1,7 @@
 import unittest
 from PyQt5.QtCore import QRect
-from capture_geometry import CaptureGeometry,ScreenMapping
-from video_sizes import export_size
+from app.recording.geometry import CaptureGeometry,ScreenMapping
+from app.media.video_sizes import export_size
 
 
 class CaptureGeometryTests(unittest.TestCase):

@@ -5,8 +5,8 @@ from pathlib import Path
 from PyQt5.QtCore import QMimeData,QProcess,QSize,Qt,QUrl,pyqtSignal
 from PyQt5.QtGui import QIcon,QPainter,QColor,QPixmap
 from PyQt5.QtWidgets import QAbstractItemView,QListView,QListWidget,QListWidgetItem,QStyle
-from media_info import probe_media
-from recorder_ui import clean_child_environment
+from app.media.info import probe_media
+from app.common.environment import clean_child_environment
 
 
 class VideoList(QListWidget):

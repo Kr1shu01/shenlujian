@@ -11,61 +11,21 @@ import subprocess
 import sys
 import time
 
-from PyQt5.QtCore import QProcess, QProcessEnvironment, QSettings, QStandardPaths, Qt, QTimer, QUrl
+from PyQt5.QtCore import QProcess, QSettings, QStandardPaths, Qt, QTimer, QUrl
 from PyQt5.QtGui import QDesktopServices, QIcon
 from PyQt5.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFrame,
     QGridLayout, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox,
     QPushButton, QScrollArea, QSpinBox, QSystemTrayIcon, QTextEdit, QVBoxLayout, QWidget,
 )
-from recording import RecordingOptions, ffmpeg_arguments, output_path
-from area_selector import AreaSelector
-from capture_geometry import CaptureGeometry,screen_choices
+from app.recording.commands import RecordingOptions, ffmpeg_arguments, output_path
+from app.recording.area_selector import AreaSelector
+from app.recording.geometry import CaptureGeometry,screen_choices
+from app.common.environment import clean_child_environment
+from app.common.resources import RESOURCE_DIR
 
 APP_ID = "shenlujian"
 APP_NAME = "神录剪"
-RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
-STYLE = """
-QWidget { background:#111822; color:#e8edf5; font-family:"Noto Sans CJK SC","Ubuntu",sans-serif; font-size:14px; }
-QFrame#card { background:#192331; border:1px solid #2c3a4b; border-radius:14px; }
-QFrame#card QLabel, QFrame#card QCheckBox, QWidget#inlineRow { background:transparent; }
-QLabel#title { font-size:28px; font-weight:700; }
-QLabel#subtitle, QLabel#muted { color:#97a7bb; }
-QLabel#section { font-size:16px; font-weight:600; }
-QLabel#badge { color:#8ed9c1; background:#173730; border:1px solid #2b5349; border-radius:9px; padding:7px 12px; }
-QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox { background:#0f1722; border:1px solid #34455a; border-radius:7px; padding:8px 10px; min-height:20px; }
-QLineEdit:focus, QComboBox:focus, QSpinBox:focus { border-color:#8aa8ce; }
-QComboBox QAbstractItemView { background:#1e2b3c; selection-background-color:#3c536f; }
-QComboBox::drop-down { border:0; width:25px; }
-QComboBox::down-arrow { image:url(__CHEVRON__); width:12px; height:8px; }
-QPushButton { background:#273749; border:1px solid #40536b; border-radius:8px; padding:9px 15px; }
-QPushButton:hover { background:#344961; }
-QPushButton:disabled { color:#68788c; background:#202c3a; border-color:#2d3b4c; }
-QPushButton#record { background:#f1665c; color:#fff; border:0; font-weight:700; font-size:16px; padding:13px 26px; }
-QPushButton#record:hover { background:#ff7b71; }
-QPushButton#record:disabled { background:#6d4544; color:#d4c0be; }
-QPushButton#stop { color:#ffb1aa; border-color:#774841; font-weight:600; }
-QCheckBox { spacing:8px; }
-QCheckBox::indicator { width:18px; height:18px; border:1px solid #526981; border-radius:4px; background:#101924; }
-QCheckBox::indicator:checked { background:#7bbda8; border:3px solid #17352d; }
-QLabel#timer { font-size:26px; font-family:"DejaVu Sans Mono",monospace; font-weight:600; }
-QTextEdit { background:#0c121a; border:1px solid #2b3b4d; border-radius:8px; font-size:12px; font-family:monospace; }
-QScrollArea { border:0; }
-QToolTip { background:#293d54; color:#fff; border:1px solid #526981; padding:5px; }
-"""
-
-
-def clean_child_environment():
-    environment = QProcessEnvironment.systemEnvironment()
-    if getattr(sys, "frozen", False):
-        original = os.environ.get("LD_LIBRARY_PATH_ORIG")
-        if original:
-            environment.insert("LD_LIBRARY_PATH", original)
-        else:
-            environment.remove("LD_LIBRARY_PATH")
-    return environment
-
-
 class RecorderWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -508,7 +468,7 @@ class RecorderWindow(QMainWindow):
             arguments = ffmpeg_arguments(options,destination)
             program=self.ffmpeg
             if self.wayland:
-                helper=RESOURCE_DIR/'wayland_capture.py'
+                helper=RESOURCE_DIR/'app'/'recording'/'wayland_capture.py'
                 if not helper.exists():raise ValueError('Wayland 录屏组件缺失，请重新安装。')
                 config={'ffmpeg':self.ffmpeg,'destination':str(destination),'fps':options.fps,'crf':options.crf,'preset':options.preset,'cursor':options.cursor,'output':[options.output_width,options.output_height],'crop':[options.x,options.y,options.width,options.height] if self.area.currentData() is None else None}
                 program='/usr/bin/python3';arguments=[str(helper),json.dumps(config)]

@@ -5,7 +5,7 @@ from PyQt5.QtCore import QEvent,QMimeData,QPoint,QPointF,QRect,QTimer,Qt,QUrl
 from PyQt5.QtGui import QDragEnterEvent,QDropEvent,QMouseEvent
 from PyQt5.QtTest import QTest
 from PyQt5.QtWidgets import QApplication,QLabel
-from capture_geometry import CaptureGeometry,ScreenMapping
+from app.recording.geometry import CaptureGeometry,ScreenMapping
 
 
 class AudioCheck:

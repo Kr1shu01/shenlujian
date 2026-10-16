@@ -1,10 +1,10 @@
 import hashlib,json,math,struct,subprocess,tempfile,unittest
 from pathlib import Path
 from fractions import Fraction
-from editing import VideoInfo
-from media_info import AudioInfo,probe_media
-from project_model import Project,project_export_arguments
-from capture_geometry import CaptureGeometry,ScreenMapping,screen_choices
+from app.editor.operations import VideoInfo
+from app.media.info import AudioInfo,probe_media
+from app.editor.project import Project,project_export_arguments
+from app.recording.geometry import CaptureGeometry,ScreenMapping,screen_choices
 from PyQt5.QtCore import QRect
 
 

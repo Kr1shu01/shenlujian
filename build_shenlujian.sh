@@ -5,6 +5,6 @@ cd "$APP_DIR"
 exec "$APP_DIR/.build-venv/bin/python" -m PyInstaller --clean --noconfirm \
     --onefile --windowed --name shenlujian \
     --add-data "$APP_DIR/assets:assets" \
-    --add-data "$APP_DIR/wayland_capture.py:." \
+    --add-data "$APP_DIR/app/recording/wayland_capture.py:app/recording" \
     --exclude-module matplotlib --exclude-module numpy --exclude-module PIL \
     "$APP_DIR/shenlujian.py"

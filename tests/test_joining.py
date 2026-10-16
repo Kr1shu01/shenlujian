@@ -1,7 +1,7 @@
 import array,hashlib,json,math,subprocess,tempfile,unittest
 from pathlib import Path
-from editing import VideoInfo
-from joining import concatenate_arguments
+from app.editor.operations import VideoInfo
+from app.editor.joining import concatenate_arguments
 
 
 class JoiningTests(unittest.TestCase):

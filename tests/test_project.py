@@ -1,8 +1,8 @@
 import hashlib,json,subprocess,tempfile,unittest
 from fractions import Fraction
 from pathlib import Path
-from editing import VideoInfo
-from project_model import Project,project_export_arguments
+from app.editor.operations import VideoInfo
+from app.editor.project import Project,project_export_arguments
 
 
 class ProjectTests(unittest.TestCase):

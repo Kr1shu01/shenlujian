@@ -152,5 +152,5 @@ class ControlsCheck:
 
 
 def recorder_args(options,path):
-    from recording import ffmpeg_arguments
+    from app.recording.commands import ffmpeg_arguments
     return ffmpeg_arguments(options,path)

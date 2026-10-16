@@ -9,7 +9,8 @@ mkdir -p "$ROOT/dist" "$ROOT/source" "$APP_DIR/releases"
 install -m 755 "$APP_DIR/dist/shenlujian" "$ROOT/dist/shenlujian"
 cp -r "$APP_DIR/assets" "$ROOT/assets"
 cp "$APP_DIR/install_shenlujian.sh" "$ROOT/install_shenlujian.sh"
-cp "$APP_DIR/"*.py "$ROOT/source/"
+cp "$APP_DIR/shenlujian.py" "$ROOT/source/"
+tar -C "$APP_DIR" --exclude=__pycache__ --exclude="*.pyc" -cf - app tests | tar -C "$ROOT/source" -xf -
 cp "$APP_DIR/build_shenlujian.sh" "$APP_DIR/build_deb.sh" "$APP_DIR/build_zip.sh" "$APP_DIR/install_shenlujian.sh" "$APP_DIR/README.md" "$ROOT/source/"
 cp -r "$APP_DIR/assets" "$ROOT/source/assets"
 if [[ -d "$APP_DIR/licenses" ]]; then cp -r "$APP_DIR/licenses" "$ROOT/licenses"; fi

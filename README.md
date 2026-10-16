@@ -67,3 +67,26 @@ F9 开始录制；F10 停止并保存。全局快捷键在窗口最小化或其�
 素材与音轨检查覆盖默认全屏和双屏选择逻辑、素材库 Delete、音频导入和波形、拖动音轨、同步试听、独立音轨删除与撤销、声音超出视频时长，以及用实际导出声音的频率检验起点和视频原声混合。
 
 应用源码使用 GPL-3.0 许可。第三方组件的许可文本位于 licenses/。
+
+## 源码结构
+
+```text
+shenlujian.py          启动入口
+app/
+  main.py             主窗口和命令行
+  recording/          录屏面板、区域选择、屏幕坐标、FFmpeg 和 Wayland
+  editor/             剪辑面板、项目模型、时间线、裁剪和拼接
+  media/              素材库、媒体信息、视频预览、音频预览和尺寸处理
+  common/             资源路径、样式、快捷键和子进程环境
+tests/
+  test_*.py           自动化回归测试
+  checks/             桌面交互与录屏/剪辑验收脚本
+assets/               图标与界面资源
+licenses/             第三方许可证
+```
+
+源码启动：`.build-venv/bin/python shenlujian.py`，或 `.build-venv/bin/python -m app`。
+运行测试：`.build-venv/bin/python -m unittest discover -s tests -t . -v`。
+桌面验收仍通过启动入口的 `--integration-test`、`--preview-test`、`--timeline-test`、
+`--controls-test`、`--audio-test` 和 `--test-input` 参数调用。
+构建、ZIP 源码包和 GitHub Actions 已同步使用新的目录结构。

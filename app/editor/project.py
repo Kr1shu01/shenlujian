@@ -2,7 +2,7 @@
 from dataclasses import dataclass,replace
 from fractions import Fraction
 import colorsys,hashlib,math,uuid
-from video_sizes import export_size
+from app.media.video_sizes import export_size
 
 
 def source_color(path):
@@ -100,7 +100,7 @@ class Project:
         return False
 
     def set_clip_speed(self,uid,speed):
-        from editing import tempo_chain
+        from app.editor.operations import tempo_chain
         tempo_chain(speed)
         if not .1<=speed<=16:raise ValueError('片段倍速须为 0.1 至 16 倍。')
         track=self.audio_clips if any(c.uid==uid for c in self.audio_clips) else self.clips
@@ -161,7 +161,7 @@ class Project:
 
 
 def project_export_arguments(project,destination,speed=1,crf=23,audio=True):
-    from editing import tempo_chain
+    from app.editor.operations import tempo_chain
     if not project.frames:raise ValueError('请先把素材加入时间线。')
     tempo=tempo_chain(speed)
     if not 0<=crf<=35:raise ValueError('导出清晰度无效。')

@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from video_sizes import even_size
+from app.media.video_sizes import even_size
 
 
 @dataclass(frozen=True)

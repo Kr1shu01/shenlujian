@@ -3,8 +3,8 @@ import json,os,subprocess,sys,tempfile,unittest
 from pathlib import Path
 from unittest.mock import Mock,patch
 from PyQt5.QtCore import QRect
-from capture_geometry import CaptureGeometry
-from wayland_capture import Capture
+from app.recording.geometry import CaptureGeometry
+from app.recording.wayland_capture import Capture
 
 class WaylandTests(unittest.TestCase):
     def test_portal_requests_are_subscribed_before_async_call(self):
@@ -23,7 +23,7 @@ class WaylandTests(unittest.TestCase):
         callback.assert_not_called();capture.event.assert_called_once_with(event='cancelled');capture.finish.assert_called_once_with(0)
     def test_wayland_geometry_uses_qt_scale_and_never_xrandr(self):
         screen=Mock();screen.geometry.return_value=QRect(0,0,1920,1080);screen.devicePixelRatio.return_value=2;screen.name.return_value='DP-1'
-        with patch.dict(os.environ,{'XDG_SESSION_TYPE':'wayland'}),patch('capture_geometry.subprocess.run') as run:
+        with patch.dict(os.environ,{'XDG_SESSION_TYPE':'wayland'}),patch('app.recording.geometry.subprocess.run') as run:
             geometry=CaptureGeometry.detect([screen]);run.assert_not_called()
         self.assertEqual(geometry.root,QRect(0,0,3840,2160))
     def test_real_encoder_stops_and_saves_full_and_cropped_video(self):
@@ -31,7 +31,7 @@ class WaylandTests(unittest.TestCase):
             for crop,output,expected in ((None,[0,0],(320,240)),([20,30,160,120],[640,480],(640,480))):
                 path=Path(folder)/('crop.mp4' if crop else 'full.mp4')
                 config={'ffmpeg':'/usr/bin/ffmpeg','destination':str(path),'fps':24,'crf':23,'preset':'ultrafast','cursor':True,'output':output,'crop':crop}
-                process=subprocess.Popen(['/usr/bin/python3',str(Path(__file__).with_name('wayland_capture.py')),json.dumps(config),'--test-source'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+                process=subprocess.Popen(['/usr/bin/python3',str(Path(__file__).resolve().parents[1]/'app'/'recording'/'wayland_capture.py'),json.dumps(config),'--test-source'],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
                 stopped=False
                 try:
                     for line in process.stdout:

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
 import math
-from editing import VideoInfo
+from app.editor.operations import VideoInfo
 
 
 @dataclass(frozen=True)

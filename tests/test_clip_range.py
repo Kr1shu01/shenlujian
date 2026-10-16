@@ -2,10 +2,10 @@
 import json,subprocess,tempfile,unittest
 from pathlib import Path
 from fractions import Fraction
-from editing import VideoInfo
-from media_info import AudioInfo
-from project_model import Project,project_export_arguments
-from test_audio_track import frequency
+from app.editor.operations import VideoInfo
+from app.media.info import AudioInfo
+from app.editor.project import Project,project_export_arguments
+from tests.test_audio_track import frequency
 
 class ClipRangeTests(unittest.TestCase):
     def video(self,name):return VideoInfo(Path('/tmp')/name,64,64,Fraction(30),90,3,False)

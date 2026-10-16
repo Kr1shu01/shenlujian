@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from editing import VideoInfo, export_arguments, kept_ranges, merge_cuts, tempo_chain
+from app.editor.operations import VideoInfo, export_arguments, kept_ranges, merge_cuts, tempo_chain
 
 
 class EditingTests(unittest.TestCase):

@@ -7,14 +7,14 @@ from PyQt5.QtMultimedia import QMediaContent,QMediaPlayer
 from PyQt5.QtWidgets import (QApplication,QCheckBox,QComboBox,QDoubleSpinBox,QFileDialog,QFrame,QHBoxLayout,QLabel,QLineEdit,
     QMessageBox,QProgressBar,QPushButton,QScrollArea,QShortcut,QTextEdit,QVBoxLayout,QWidget)
 from PyQt5.QtCore import pyqtSignal
-from recorder_ui import clean_child_environment
-from media_library import MediaLibrary
-from preview_ui import CpuVideoSurface,PreviewProxy,VideoCanvas
-from project_model import Project,project_export_arguments
-from project_timeline import ProjectTimeline
-from recording import output_path
-from video_sizes import export_size
-from audio_preview import AudioPreview
+from app.common.environment import clean_child_environment
+from app.media.library import MediaLibrary
+from app.media.preview import CpuVideoSurface,PreviewProxy,VideoCanvas
+from app.editor.project import Project,project_export_arguments
+from app.editor.timeline import ProjectTimeline
+from app.recording.commands import output_path
+from app.media.video_sizes import export_size
+from app.media.audio_preview import AudioPreview
 
 
 def clock(seconds):
