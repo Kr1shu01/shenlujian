@@ -1,5 +1,5 @@
-"""Translate Qt selection coordinates to the X11 framebuffer's pixels."""
-import ctypes,math,os,re,subprocess
+"""Translate Qt desktop selections to native X11, Windows or portal pixels."""
+import ctypes,math,os,re,subprocess,sys
 from dataclasses import dataclass
 from PyQt5.QtCore import QRect
 
@@ -11,6 +11,39 @@ class ScreenMapping:
     native: QRect
 
 
+def windows_native_rectangles(user32=None):
+    """Return physical monitor bounds keyed by the QScreen Windows device name.
+
+    Startup establishes per-monitor DPI awareness before QApplication is made.
+    Using monitor RECTs instead of multiplying a desktop origin by a DPR is
+    essential for screens left/above the primary and mixed display scaling.
+    """
+    if user32 is None:user32=ctypes.WinDLL('user32',use_last_error=True)
+    class Rect(ctypes.Structure):
+        _fields_=[('left',ctypes.c_int32),('top',ctypes.c_int32),
+                  ('right',ctypes.c_int32),('bottom',ctypes.c_int32)]
+    class MonitorInfo(ctypes.Structure):
+        _fields_=[('cbSize',ctypes.c_uint32),('rcMonitor',Rect),('rcWork',Rect),
+                  ('dwFlags',ctypes.c_uint32),('szDevice',ctypes.c_wchar*32)]
+    callback_type=getattr(ctypes,'WINFUNCTYPE',ctypes.CFUNCTYPE)(
+        ctypes.c_int32,ctypes.c_void_p,ctypes.c_void_p,ctypes.POINTER(Rect),ctypes.c_ssize_t)
+    user32.EnumDisplayMonitors.argtypes=[ctypes.c_void_p,ctypes.POINTER(Rect),callback_type,ctypes.c_ssize_t]
+    user32.EnumDisplayMonitors.restype=ctypes.c_int32
+    user32.GetMonitorInfoW.argtypes=[ctypes.c_void_p,ctypes.POINTER(MonitorInfo)]
+    user32.GetMonitorInfoW.restype=ctypes.c_int32
+    native={}
+    @callback_type
+    def visit(monitor,hdc,rectangle,data):
+        info=MonitorInfo();info.cbSize=ctypes.sizeof(info)
+        if user32.GetMonitorInfoW(monitor,ctypes.byref(info)):
+            r=info.rcMonitor
+            native[info.szDevice.casefold()]=QRect(r.left,r.top,r.right-r.left,r.bottom-r.top)
+        return 1
+    if not user32.EnumDisplayMonitors(None,None,visit,0):
+        raise OSError('无法读取 Windows 显示器布局。')
+    return native
+
+
 class CaptureGeometry:
     def __init__(self,root,mappings):
         self.root=QRect(root);self.mappings=mappings
@@ -19,6 +52,17 @@ class CaptureGeometry:
 
     @classmethod
     def detect(cls,screens):
+        if sys.platform=='win32':
+            try:native=windows_native_rectangles()
+            except (OSError,AttributeError):native={}
+            mappings=[];root=QRect()
+            for screen in screens:
+                logical=QRect(screen.geometry());physical=native.get(screen.name().casefold())
+                if physical is None:
+                    ratio=screen.devicePixelRatio()
+                    physical=QRect(logical.x(),logical.y(),round(logical.width()*ratio),round(logical.height()*ratio))
+                mappings.append(ScreenMapping(screen.name(),logical,QRect(physical)));root=root.united(physical)
+            return cls(root,mappings)
         if os.environ.get('XDG_SESSION_TYPE')=='wayland':
             mappings=[];root=QRect()
             for screen in screens:

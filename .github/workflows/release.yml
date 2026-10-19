@@ -1,13 +1,41 @@
 name: Build and release
 on:
   push:
+    branches: ['main', 'codex/**']
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Package version X.Y.Z (manual runs build artifacts without publishing)'
+        required: false
+        default: '1.2.0'
 permissions:
-  contents: write
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
-  linux:
+  version:
     runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - id: version
+        env:
+          MANUAL_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          version="${MANUAL_VERSION:-1.2.0}"
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then version="${GITHUB_REF_NAME#v}"; fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo 'Version must be X.Y.Z' >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+  linux:
+    needs: version
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - name: Install build and runtime dependencies
@@ -19,26 +47,141 @@ jobs:
       - name: Test
         run: /usr/bin/python3 -m unittest discover -s tests -t . -v
       - name: Build packages
+        env:
+          PACKAGE_VERSION: ${{ needs.version.outputs.version }}
         run: |
           bash build_shenlujian.sh
           .build-venv/bin/python -c "from PyInstaller.archive.readers import CArchiveReader; names=CArchiveReader('dist/shenlujian').toc; assert any('mediaservice/libgstmediaplayer.so' in name for name in names), 'Missing playback backend'; assert any('platforms/libqwayland' in name for name in names), 'Missing Wayland plugin'"
-          version="${GITHUB_REF_NAME#v}"
-          if [[ "$GITHUB_REF_TYPE" != tag ]]; then version=1.1.1; fi
-          bash build_deb.sh "$version"
-          bash build_zip.sh "$version"
-          cd releases
-          sha256sum *.deb *.zip > SHA256SUMS
+          bash build_deb.sh "$PACKAGE_VERSION"
+          bash build_zip.sh "$PACKAGE_VERSION"
       - uses: actions/upload-artifact@v4
         with:
           name: shenlujian-linux-amd64
-          path: releases/*
-      - name: Publish release
-        if: startsWith(github.ref, 'refs/tags/')
+          if-no-files-found: error
+          path: |
+            releases/*.deb
+            releases/*.zip
+  windows:
+    needs: version
+    runs-on: windows-2022
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.9'
+          architecture: x64
+          cache: pip
+          cache-dependency-path: requirements-windows.txt
+      - name: Install pinned build dependencies
+        run: python -m pip install -r requirements-windows.txt
+      - name: Prepare Windows media services
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # The hosted Windows Server image may omit desktop codec services.
+          $feature = Get-WindowsFeature Server-Media-Foundation
+          if (!$feature.Installed) {
+            $result = Install-WindowsFeature Server-Media-Foundation
+            if (!$result.Success -or $result.RestartNeeded -eq 'Yes') {
+              throw 'Media Foundation must be available without restarting the runner'
+            }
+          }
+          Set-Service -Name Audiosrv -StartupType Automatic
+          Start-Service -Name Audiosrv
+      - name: Download and verify bundled FFmpeg
+        run: python build_windows.py --prepare
+      - name: Windows unit tests
+        run: python -m unittest discover -s tests -t . -v
+      - name: Source application recording and editor smoke
+        run: python scripts/windows_smoke.py --report build/windows/reports/source.json
+      - name: Build Windows portable ZIP and setup installer
+        env:
+          PACKAGE_VERSION: ${{ needs.version.outputs.version }}
+        run: python build_windows.py --version "$env:PACKAGE_VERSION"
+      - name: Test packaged applications, install and uninstall
+        env:
+          PACKAGE_VERSION: ${{ needs.version.outputs.version }}
+        run: ./scripts/windows_installer_smoke.ps1 -Version "$env:PACKAGE_VERSION"
+      - name: Preserve smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-smoke-evidence
+          if-no-files-found: warn
+          path: |
+            build/windows/reports/*.json
+            build/windows/reports/*.png
+            build/windows/reports/*.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shenlujian-windows-x64
+          if-no-files-found: error
+          path: |
+            releases/*-windows-x64-setup.exe
+            releases/*-windows-x64-portable.zip
+  release:
+    needs: [version, linux, windows]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: shenlujian-*
+          merge-multiple: true
+          path: releases
+      - name: Validate assets and create combined checksums
+        env:
+          PACKAGE_VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, os
+          from pathlib import Path
+          folder = Path('releases')
+          version = os.environ['PACKAGE_VERSION']
+          expected = {
+              f'shenlujian_{version}_amd64.deb',
+              f'shenlujian-{version}-linux-amd64.zip',
+              f'shenlujian-{version}-windows-x64-setup.exe',
+              f'shenlujian-{version}-windows-x64-portable.zip',
+          }
+          assets = {p.name: p for p in folder.iterdir() if p.is_file()}
+          assert set(assets) == expected, f'Unexpected/missing release assets: {set(assets) ^ expected}'
+          lines = []
+          for name, path in sorted(assets.items()):
+              assert path.stat().st_size > 1024, f'Empty asset: {name}'
+              hasher = hashlib.sha256()
+              with path.open('rb') as stream:
+                  for block in iter(lambda: stream.read(1024 * 1024), b''):
+                      hasher.update(block)
+              checksum = hasher.hexdigest()
+              lines.append(f'{checksum}  {name}\n')
+          (folder / 'SHA256SUMS').write_text(''.join(lines), encoding='utf-8')
+          PY
+      - name: Publish one verified release after both platforms pass
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" releases/*.deb releases/*.zip releases/SHA256SUMS --verify-tag --title "神录剪 $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
-      - name: Mark superseded first package as prerelease
-        if: github.ref == 'refs/tags/v1.1.1'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release edit v1.1.0 --prerelease --notes "此首次安装包缺少媒体播放后端，请下载 v1.1.1 或更新版本。源码不受影响。"
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" --json isDraft > /tmp/release-state.json 2>/dev/null; then
+            python3 -c "import json; assert json.load(open('/tmp/release-state.json'))['isDraft'], 'Release already published; create a new version instead of overwriting it'"
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --draft --title "神录剪 $GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
+          fi
+          gh release upload "$GITHUB_REF_NAME" releases/* --clobber
+          gh release view "$GITHUB_REF_NAME" --json assets > /tmp/release-assets.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          assets = json.loads(Path('/tmp/release-assets.json').read_text())['assets']
+          uploaded = {a['name']: a['size'] for a in assets}
+          local = {p.name: p.stat().st_size for p in Path('releases').iterdir() if p.is_file()}
+          assert uploaded == local, f'Release asset verification failed: {uploaded} != {local}'
+          PY
+          gh release edit "$GITHUB_REF_NAME" --draft=false

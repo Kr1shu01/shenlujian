@@ -6,7 +6,6 @@ import json
 import os
 from pathlib import Path
 import shlex
-import shutil
 import subprocess
 import sys
 import time
@@ -21,8 +20,8 @@ from PyQt5.QtWidgets import (
 from app.recording.commands import RecordingOptions, ffmpeg_arguments, output_path
 from app.recording.area_selector import AreaSelector
 from app.recording.geometry import CaptureGeometry,screen_choices
-from app.common.environment import clean_child_environment
-from app.common.resources import RESOURCE_DIR
+from app.common.environment import clean_child_environment, clean_subprocess_environment, subprocess_options
+from app.common.resources import RESOURCE_DIR, media_tool
 
 APP_ID = "shenlujian"
 APP_NAME = "神录剪"
@@ -33,7 +32,8 @@ class RecorderWindow(QMainWindow):
         self.setWindowIcon(QIcon(str(RESOURCE_DIR / "assets/shenlujian.svg")))
         self.resize(850, 1000)
         self.setMinimumSize(700, 710)
-        self.wayland = os.environ.get("XDG_SESSION_TYPE")=="wayland"
+        self.windows = sys.platform == "win32"
+        self.wayland = not self.windows and os.environ.get("XDG_SESSION_TYPE")=="wayland"
         self.capture_ready = False
         self.recording_cancelled = False
         self.settings = QSettings("Codeme", APP_ID)
@@ -59,7 +59,7 @@ class RecorderWindow(QMainWindow):
         self.self_test = False
         self.test_result = None
         self.video_info = None
-        self.ffmpeg = shutil.which("ffmpeg")
+        self.ffmpeg = media_tool("ffmpeg")
         self.timer = QTimer(self)
         self.timer.setInterval(250)
         self.timer.timeout.connect(self.update_timer)
@@ -77,7 +77,9 @@ class RecorderWindow(QMainWindow):
         def connect_screens(*_):
             for screen in QApplication.screens():
                 if screen not in self.screen_connections:
-                    screen.geometryChanged.connect(lambda *_:self.screen_refresh.start());self.screen_connections.add(screen)
+                    screen.geometryChanged.connect(lambda *_:self.screen_refresh.start())
+                    screen.logicalDotsPerInchChanged.connect(lambda *_:self.screen_refresh.start())
+                    self.screen_connections.add(screen)
             self.screen_refresh.start()
         app.screenAdded.connect(connect_screens);app.screenRemoved.connect(connect_screens);connect_screens()
         if QSystemTrayIcon.isSystemTrayAvailable():
@@ -119,7 +121,7 @@ class RecorderWindow(QMainWindow):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded if self.windows else Qt.ScrollBarAlwaysOff)
         scroll.setWidget(body)
         central = QWidget()
         outer = QVBoxLayout(central)
@@ -166,8 +168,8 @@ class RecorderWindow(QMainWindow):
         self.custom_area.setObjectName("inlineRow")
         row = QHBoxLayout(self.custom_area)
         row.setContentsMargins(0,0,0,0)
-        self.x = self.spin(0,max(united.width()-2,0),0)
-        self.y = self.spin(0,max(united.height()-2,0),0)
+        self.x = self.spin(united.x(),max(united.x()+united.width()-2,united.x()),united.x())
+        self.y = self.spin(united.y(),max(united.y()+united.height()-2,united.y()),united.y())
         self.capture_w = self.spin(2,max(united.width(),2),united.width())
         self.capture_h = self.spin(2,max(united.height(),2),united.height())
         for name, widget in [("左",self.x),("上",self.y),("宽",self.capture_w),("高",self.capture_h)]:
@@ -197,7 +199,7 @@ class RecorderWindow(QMainWindow):
         picture_layout.addLayout(capture_tools)
         self.capture_size_label=self.label("");self.capture_size_label.setWordWrap(True);picture_layout.addWidget(self.capture_size_label)
         for control in (self.x,self.y,self.capture_w,self.capture_h):
-            control.setToolTip("所选共享屏幕内的实际像素，左上角为 0,0。" if self.wayland else "X11 桌面实际像素；鼠标框选会自动换算显示缩放。")
+            control.setToolTip("所选共享屏幕内的实际像素，左上角为 0,0。" if self.wayland else "Windows 桌面实际像素；左侧或上方屏幕的坐标可为负数，框选自动换算显示缩放。" if self.windows else "X11 桌面实际像素；鼠标框选会自动换算显示缩放。")
         self.resolution.setToolTip("输出支持原始尺寸、1080p、2K、4K及自定义；保持画面比例，奇数尺寸向下对齐到偶数。")
 
         quality_card, quality_layout = self.card("清晰度与性能")
@@ -414,8 +416,9 @@ class RecorderWindow(QMainWindow):
         if size is None: size = (self.output_w.value(),self.output_h.value())
         crf = self.quality.currentData()
         if crf is None: crf = self.crf.value()
-        return RecordingOptions("pipewire" if self.wayland else os.environ.get("DISPLAY",""),x,y,width,height,self.fps.value(),crf,
-                                self.preset.currentData(),*size,self.cursor.isChecked())
+        return RecordingOptions("desktop" if self.windows else "pipewire" if self.wayland else os.environ.get("DISPLAY",""),x,y,width,height,self.fps.value(),crf,
+                                self.preset.currentData(),*size,self.cursor.isChecked(),
+                                capture_backend="gdigrab" if self.windows else "x11grab")
 
     def update_preview(self, *_):
         self.custom_area.setVisible(self.area.currentData() is None)
@@ -485,7 +488,7 @@ class RecorderWindow(QMainWindow):
         self.elapsed.setText("00:00:00")
         self.detail.setText(str(destination))
         self.logs.clear()
-        self.logs.append(shlex.join([program,*arguments]))
+        self.logs.append(subprocess.list2cmdline([program,*arguments]) if self.windows else shlex.join([program,*arguments]))
         self.state = "starting"
         self.status.setText("正在启动…")
         self.parameter_box.setEnabled(False)
@@ -621,7 +624,7 @@ class RecorderWindow(QMainWindow):
         result = {"passed":success,"path":str(self.destination),"expected":self.video_info,"error":self.error_tail}
         if success:
             try:
-                output = subprocess.check_output([shutil.which("ffprobe") or "ffprobe","-v","error","-show_streams","-show_format","-of","json",str(self.destination)],env={key:value for key,value in os.environ.items() if key != "LD_LIBRARY_PATH"})
+                output = subprocess.check_output([media_tool("ffprobe") or "ffprobe","-v","error","-show_streams","-show_format","-of","json",str(self.destination)],env=clean_subprocess_environment(),**subprocess_options())
                 metadata=json.loads(output)
                 stream=metadata["streams"][0]
                 numerator,denominator=map(int,stream["avg_frame_rate"].split("/"))
@@ -633,4 +636,3 @@ class RecorderWindow(QMainWindow):
         Path(self.test_result).write_text(json.dumps(result,ensure_ascii=False,indent=2))
         print(json.dumps(result,ensure_ascii=False),flush=True)
         QApplication.instance().exit(0 if result["passed"] else 1)
-
