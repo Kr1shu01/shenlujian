@@ -96,6 +96,8 @@ jobs:
       - name: Download and verify bundled FFmpeg
         run: python build_windows.py --prepare
       - name: Windows unit tests
+        id: unit-tests
+        continue-on-error: true
         run: python scripts/ci_run.py python -m unittest discover -s tests -t . -v
       - name: Source application recording and editor smoke
         run: python scripts/ci_run.py python scripts/windows_smoke.py --report build/windows/reports/source.json
@@ -107,6 +109,9 @@ jobs:
         env:
           PACKAGE_VERSION: ${{ needs.version.outputs.version }}
         run: python scripts/ci_run.py pwsh -NoProfile -File ./scripts/windows_installer_smoke.ps1 -Version "$env:PACKAGE_VERSION"
+      - name: Require all unit tests to pass
+        if: always() && steps.unit-tests.outcome == 'failure'
+        run: throw 'Windows unit tests failed; release artifacts cannot be published'
       - name: Preserve smoke evidence
         if: always()
         uses: actions/upload-artifact@v4

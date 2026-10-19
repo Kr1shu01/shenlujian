@@ -48,7 +48,9 @@ class ClipRangeTests(unittest.TestCase):
             p.undo();video=list(p.clips);self.assertTrue(p.delete_clip_range(p.audio_clips[0].uid,30,45));self.assertEqual(p.clips,video);self.assertEqual(p.audio_clips[-1],audio[-1])
             audio_out=root/'audio-cut.mp4';args,_=project_export_arguments(p,audio_out,crf=0)
             subprocess.run(['ffmpeg',*args],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
-            self.assertGreater(frequency(audio_out,2.3,880),.04);self.assertGreater(frequency(audio_out,2.3,660),.04)
+            measurements={t:{hz:frequency(audio_out,t,hz) for hz in (880,660)} for t in (.3,1.3,1.8,2.3,2.7)}
+            details=json.dumps(measurements)+'\n'+args[args.index('-filter_complex')+1]
+            self.assertGreater(measurements[2.3][880],.04,details);self.assertGreater(measurements[2.3][660],.04,details)
             self.assertLess(frequency(audio_out,2.7,880),.015);self.assertGreater(frequency(audio_out,2.7,660),.04)
 
 if __name__=='__main__':unittest.main()
