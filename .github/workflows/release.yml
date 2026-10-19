@@ -97,7 +97,6 @@ jobs:
         run: python build_windows.py --prepare
       - name: Windows unit tests
         id: unit-tests
-        continue-on-error: true
         run: python scripts/ci_run.py python -m unittest discover -s tests -t . -v
       - name: Source application recording and editor smoke
         run: python scripts/ci_run.py python scripts/windows_smoke.py --report build/windows/reports/source.json
