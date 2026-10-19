@@ -52,16 +52,20 @@ class ClipRangeTests(unittest.TestCase):
             variants={}
             if measurements[2.3][880]<=.04:
                 index=args.index('-filter_complex')+1;original=args[index]
-                graphs={
-                    'no_output_tempo':original.replace('atempo=1[outa]','anull[outa]'),
-                    'no_limiter':original.replace('alimiter=limit=0.95:level=0:attack=1:release=10','anull'),
-                    'uniform_audio_frames':original.replace('atrim=duration=4.000000000[extra','atrim=duration=4.000000000,asetnsamples=n=1024:p=1[extra'),
-                    'normalized_mix':original.replace('amix=inputs=3:duration=longest:normalize=0:dropout_transition=0','amix=inputs=3:duration=longest:normalize=1:dropout_transition=0,volume=3'),
-                }
-                for name,graph in graphs.items():
-                    candidate=root/(name+'.mp4');altered=list(args);altered[index]=graph;altered[-1]=str(candidate)
-                    subprocess.run(['ffmpeg',*altered],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+                variants['source_music']={t:frequency(music,t,880) for t in (.3,1.3,1.8,2.3,2.7)}
+                variants['source_duration']=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_format','-of','json',str(music)]))['format']['duration']
+                for part in original.split(';'):
+                    if not part.startswith(('[2:a:0]','[3:a:0]')):continue
+                    name='left' if part.startswith('[2:') else 'right'
+                    chain=part.split(']',1)[1].rsplit('[',1)[0]
+                    candidate=root/(name+'.wav')
+                    subprocess.run(['ffmpeg','-v','error','-i',str(music),'-af',chain,str(candidate)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
                     variants[name]={t:frequency(candidate,t,880) for t in (.3,1.3,1.8,2.3,2.7)}
+                audio_parts=[part for part in original.split(';') if part.startswith(('[2:a:0]','[3:a:0]','[4:a:0]','[extra0]'))]
+                audio_graph=';'.join(audio_parts).replace('[2:a:0]','[0:a:0]').replace('[3:a:0]','[1:a:0]').replace('[4:a:0]','[2:a:0]')
+                candidate=root/'audio_only_graph.wav'
+                subprocess.run(['ffmpeg','-v','error','-i',str(music),'-i',str(music),'-i',str(other),'-filter_complex',audio_graph,'-map','[outa]',str(candidate)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
+                variants['audio_only_graph']={t:frequency(candidate,t,880) for t in (.3,1.3,1.8,2.3,2.7)}
             details=json.dumps({'actual':measurements,'variants':variants})
             self.assertGreater(measurements[2.3][880],.04,details);self.assertGreater(measurements[2.3][660],.04,details)
             self.assertLess(frequency(audio_out,2.7,880),.015);self.assertGreater(frequency(audio_out,2.7,660),.04)
