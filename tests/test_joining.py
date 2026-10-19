@@ -1,4 +1,5 @@
 import array,hashlib,json,math,subprocess,tempfile,unittest
+import sys
 from pathlib import Path
 from app.editor.operations import VideoInfo
 from app.editor.joining import concatenate_arguments
@@ -8,7 +9,8 @@ class JoiningTests(unittest.TestCase):
     def test_mixed_dimensions_fps_audio_and_order(self):
         with tempfile.TemporaryDirectory(prefix='shenlujian-join-') as directory:
             folder=Path(directory);infos=[];hashes=[]
-            definitions=[('红 $ clip', 'red','64x64',30,1.2,True),('绿 silent','green','96x64',24,1,False),('蓝 " clip','blue','80x96',15,1.6,True)]
+            quote='\'' if sys.platform=='win32' else '"'
+            definitions=[('红 $ clip', 'red','64x64',30,1.2,True),('绿 silent','green','96x64',24,1,False),(f'蓝 {quote} clip','blue','80x96',15,1.6,True)]
             probe=lambda p:json.loads(subprocess.check_output(['ffprobe','-v','error','-show_streams','-show_format','-of','json',str(p)]))
             for name,color,size,fps,duration,audio in definitions:
                 path=folder/(name+'.mp4')
@@ -17,7 +19,7 @@ class JoiningTests(unittest.TestCase):
                 args+=['-c:v','libx264','-pix_fmt','yuv420p','-shortest',str(path)]
                 subprocess.run(args,check=True,stderr=subprocess.PIPE)
                 infos.append(VideoInfo.from_probe(path,probe(path)));hashes.append(hashlib.sha256(path.read_bytes()).digest())
-            target=folder/'拼接 $ " .mp4';args,duration=concatenate_arguments(infos,target,crf=18)
+            target=folder/f'拼接 $ {quote} .mp4';args,duration=concatenate_arguments(infos,target,crf=18)
             subprocess.run(['ffmpeg',*args],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE)
             meta=probe(target);v=next(s for s in meta['streams'] if s['codec_type']=='video');a=next(s for s in meta['streams'] if s['codec_type']=='audio')
             self.assertEqual((v['width'],v['height'],v['avg_frame_rate']),(64,64,'30/1'))

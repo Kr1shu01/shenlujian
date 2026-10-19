@@ -11,8 +11,11 @@ def main():
     output = result.stdout.decode('utf-8', errors='replace')
     print(output, end='', flush=True)
     if result.returncode and os.environ.get('GITHUB_ACTIONS'):
-        details = output[-24000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
-        print('::error title=Native Windows validation failed::' + details, flush=True)
+        tail = output[-24000:]
+        # GitHub truncates each annotation message at 4096 characters.
+        for index in range(0, len(tail), 3000):
+            details = tail[index:index + 3000].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+            print(f'::error title=Native Windows validation failed {index // 3000 + 1}::' + details, flush=True)
     return result.returncode
 
 

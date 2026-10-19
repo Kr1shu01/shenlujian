@@ -11,7 +11,7 @@ from app.common import environment, resources
 class PackagedMediaToolTests(unittest.TestCase):
     def test_windows_install_with_spaces_and_unicode_uses_own_tools_before_path(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary) / '神录剪 install with spaces'
+            root = Path(temporary).resolve() / '神录剪 install with spaces'
             tools = root / 'ffmpeg' / 'bin'
             tools.mkdir(parents=True)
             for name in ('ffmpeg', 'ffprobe'):
