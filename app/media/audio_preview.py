@@ -1,10 +1,11 @@
 """Synchronize the independent audio track with the project transport."""
 import math
-from PyQt5.QtCore import QObject,QTimer,QUrl
+from PyQt5.QtCore import QObject,QTimer,QUrl,pyqtSignal
 from PyQt5.QtMultimedia import QMediaContent,QMediaPlayer
 
 
 class AudioPreview(QObject):
+    error=pyqtSignal(str)
     def __init__(self,parent,project):
         super().__init__(parent);self.project=project;self.players={};self.muted=False
     def prune(self):
@@ -26,6 +27,7 @@ class AudioPreview(QObject):
                 player=QMediaPlayer(self);player.setNotifyInterval(20)
                 entry={'player':player,'pending':True,'position':position,'rate':clip.speed*global_speed,'play':playing and active}
                 self.players[clip.uid]=entry;player.mediaStatusChanged.connect(lambda status,e=entry:self.ready(e,status))
+                player.error.connect(lambda code,p=player,c=clip:self.error.emit(c.info.path.name+'：'+(p.errorString() or '音频播放失败，请检查输出设备和媒体解码支持。')) if code else None)
                 player.setMedia(QMediaContent(QUrl.fromLocalFile(str(clip.info.path))));player.pause()
             if not active:
                 entry['play']=False;entry['player'].pause();continue

@@ -1,4 +1,5 @@
-"""Drag a desktop rectangle and return X11 capture coordinates."""
+"""Drag a Qt desktop rectangle; the recorder maps it to native pixels."""
+import sys
 from PyQt5.QtCore import QPoint, QRect, Qt, pyqtSignal
 from PyQt5.QtGui import QColor, QPainter, QPen
 from PyQt5.QtWidgets import QWidget
@@ -9,7 +10,9 @@ class AreaSelector(QWidget):
     cancelled=pyqtSignal()
 
     def __init__(self,desktop_geometry,to_native=None):
-        super().__init__(None,Qt.Tool|Qt.FramelessWindowHint|Qt.WindowStaysOnTopHint|Qt.X11BypassWindowManagerHint)
+        flags = Qt.Tool|Qt.FramelessWindowHint|Qt.WindowStaysOnTopHint
+        if sys.platform != 'win32':flags |= Qt.X11BypassWindowManagerHint
+        super().__init__(None,flags)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.setCursor(Qt.CrossCursor)

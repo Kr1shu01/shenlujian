@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json,math,os,shutil,uuid,time
+import json,math,os,sys,uuid,time
 from pathlib import Path
 from PyQt5.QtCore import QProcess,QSettings,Qt,QTimer,QUrl
 from PyQt5.QtGui import QDesktopServices
@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import (QApplication,QCheckBox,QComboBox,QDoubleSpinBox,QFi
     QMessageBox,QProgressBar,QPushButton,QScrollArea,QShortcut,QTextEdit,QVBoxLayout,QWidget)
 from PyQt5.QtCore import pyqtSignal
 from app.common.environment import clean_child_environment
+from app.common.resources import media_tool
 from app.media.library import MediaLibrary
 from app.media.preview import CpuVideoSurface,PreviewProxy,VideoCanvas
 from app.editor.project import Project,project_export_arguments
@@ -30,12 +31,16 @@ class EditorPanel(QWidget):
         self.current_frame=0;self.info=None;self.current_source=None;self.active_index=None
         self.busy=False;self.cancelled=False;self.result_path=None;self.pending_path=None;self.last_export=None
         self.expected_duration=0;self.error_tail='';self.progress_buffer='';self.test_mode=False;self.output_name_custom=False
-        self.ffmpeg=shutil.which('ffmpeg');self.ffprobe=shutil.which('ffprobe')
+        self.ffmpeg=media_tool('ffmpeg');self.ffprobe=media_tool('ffprobe')
         self.wanted_play=False;self.media_seek_pending=False;self.preview_path=None;self.preview_sources={}
         self._switching=False;self._advancing=False;self._source_position=0;self._expected_epoch=0;self._seek_gate=None
         self._has_frame_timestamps=False;self._proxy_requested=None;self.thumbnail_serial=0;self.thumbnail_process=None
         self._playback_generation=0;self._advance_pending=False;self._clock_frame=0;self._clock_at=time.monotonic();self._tail_mode=False
-        self.player=QMediaPlayer(self,QMediaPlayer.VideoSurface);self.player.setNotifyInterval(20)
+        # WMF supports our CPU video surface, but does not advertise the
+        # VideoSurface selection hint in Qt 5. Requesting that hint forces
+        # DirectShow, which may need third-party MP4 codecs on Windows.
+        self.player=QMediaPlayer(self) if sys.platform=='win32' else QMediaPlayer(self,QMediaPlayer.VideoSurface)
+        self.player.setNotifyInterval(20)
         self.player.positionChanged.connect(self.position_changed);self.player.stateChanged.connect(self.play_state_changed)
         self.player.mediaStatusChanged.connect(self.media_status_changed);self.player.error.connect(self.media_error)
         self.encoder=QProcess(self);self.encoder.setProcessEnvironment(clean_child_environment())
@@ -46,6 +51,7 @@ class EditorPanel(QWidget):
         self.build_ui()
         self.surface=CpuVideoSurface(self);self.surface.frame_received.connect(self.video_frame_ready);self.player.setVideoOutput(self.surface)
         self.audio_preview=AudioPreview(self,self.project)
+        self.audio_preview.error.connect(lambda message:self.logs.append('音轨预览：'+message))
         self.track_timer=QTimer(self);self.track_timer.setInterval(40);self.track_timer.timeout.connect(self.tick_tracks);self.track_timer.start()
         self.proxy=PreviewProxy(self,self.ffmpeg,clean_child_environment(),self.proxy_progress,self.proxy_ready,self.proxy_error)
         for key,callback in [('Ctrl+Z',self.undo_project),('Ctrl+Shift+Z',self.redo_project),('Delete',self.delete_selected_clip),('Left',lambda:self.jump_seconds(-5)),('Right',lambda:self.jump_seconds(5))]:
@@ -78,8 +84,8 @@ class EditorPanel(QWidget):
         self.media_library.itemDoubleClicked.connect(self.library_preview);self.media_library.files_dropped.connect(self.import_files)
         self.media_library.changed.connect(self.library_changed);self.media_library.metadata_ready.connect(self.drain_additions)
         self.media_library.problem.connect(lambda message:self.logs.append('素材库：'+message))
-        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff);outer.addWidget(scroll,1)
+        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded if sys.platform=='win32' else Qt.ScrollBarAlwaysOff)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded if sys.platform=='win32' else Qt.ScrollBarAlwaysOff);outer.addWidget(scroll,1)
         self.edit_controls=QWidget();content=QVBoxLayout(self.edit_controls);content.setContentsMargins(0,0,0,0);content.setSpacing(12)
         scroll.setWidget(self.edit_controls)
         self.preview_card,preview_layout=self.card('项目预览与时间线');content.addWidget(self.preview_card)
@@ -482,10 +488,13 @@ class EditorPanel(QWidget):
         if success:
             try:
                 for _ in range(1000):
-                    try:os.link(self.pending_path,self.result_path);break
+                    try:
+                        if os.name=='nt':self.pending_path.rename(self.result_path)
+                        else:os.link(self.pending_path,self.result_path)
+                        break
                     except FileExistsError:self.result_path=output_path(str(self.result_path.parent),self.output_name.text(),False)
                 else:raise OSError('无法分配新的导出文件名。')
-                self.pending_path.unlink();self.last_export=self.result_path;self.export_progress.setValue(100)
+                self.pending_path.unlink(missing_ok=True);self.last_export=self.result_path;self.export_progress.setValue(100)
                 self.export_status.setText('✓ 已导出：'+str(self.last_export));self.open_export.setEnabled(True)
             except OSError as error:success=False;self.notify(f'视频已生成，但保存失败：{error}\n临时视频：{self.pending_path}')
         elif self.cancelled:

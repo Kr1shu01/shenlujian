@@ -31,8 +31,9 @@ class RecordingTests(unittest.TestCase):
             self.assertEqual(existing.read_bytes(),b"keep")
 
     def test_filename_cannot_escape_output_directory(self):
-        for name in ("../movie","/tmp/movie","", "..","a\nb"):
-            with self.assertRaises(ValueError): output_path("/tmp",name,False)
+        with tempfile.TemporaryDirectory() as directory:
+            for name in ("../movie","/tmp/movie","", "..","a\nb"):
+                with self.assertRaises(ValueError): output_path(directory,name,False)
 
     def test_odd_dimensions_produce_valid_yuv420_size(self):
         options=RecordingOptions(":1",0,0,1025,769)

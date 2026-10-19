@@ -4,8 +4,12 @@ from pathlib import Path
 from unittest.mock import Mock,patch
 from PyQt5.QtCore import QRect
 from app.recording.geometry import CaptureGeometry
-from app.recording.wayland_capture import Capture
+if sys.platform.startswith('linux'):
+    from app.recording.wayland_capture import Capture
+else:
+    Capture=None
 
+@unittest.skipUnless(sys.platform.startswith('linux'), 'Wayland is Linux-only')
 class WaylandTests(unittest.TestCase):
     def test_portal_requests_are_subscribed_before_async_call(self):
         capture=Capture.__new__(Capture);capture.bus=Mock();capture.bus.get_unique_name.return_value=':1.42';capture.portal=Mock();capture.closed=False

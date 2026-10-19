@@ -196,11 +196,14 @@ def project_export_arguments(project,destination,speed=1,crf=23,audio=True):
         graph.append(f'[joineda]apad=whole_dur={project.duration:.9f},atrim=duration={project.duration:.9f}[original]');audio_labels.append('[original]')
     for j,clip in enumerate(project.audio_clips):
         i=len(project.clips)+j;args+=['-threads','2','-i',str(clip.info.path)]
+        # Use exact sample offsets, then normalize delayed frame timestamps
+        # before duration-based padding/trimming (including leading silence).
         graph.append(f'[{i}:a:0]atrim=start={clip.start/fps:.9f}:end={clip.end/fps:.9f},asetpts=PTS-STARTPTS,'
                      f'aresample=48000:async=1:first_pts=0,aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo,'
                      f'{tempo_chain(clip.speed)},atrim=start={clip.output_start/fps:.9f}:end={clip.stop/fps:.9f},asetpts=PTS-STARTPTS,'
                      f'apad=whole_dur={clip.frames/fps:.9f},atrim=duration={clip.frames/fps:.9f},'
-                     f'adelay={clip.offset/fps*1000:.6f}:all=1,apad=whole_dur={project.duration:.9f},atrim=duration={project.duration:.9f}[extra{j}]')
+                     f'adelay={round(clip.offset/fps*48000)}S:all=1,asetpts=N/SR/TB,'
+                     f'apad=whole_dur={project.duration:.9f},atrim=duration={project.duration:.9f}[extra{j}]')
         audio_labels.append(f'[extra{j}]')
     if include_audio:
         graph.append(''.join(audio_labels)+f'amix=inputs={len(audio_labels)}:duration=longest:normalize=0:dropout_transition=0,alimiter=limit=0.95:level=0:attack=1:release=10,{tempo}[outa]')

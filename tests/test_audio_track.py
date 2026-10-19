@@ -9,7 +9,9 @@ from PyQt5.QtCore import QRect
 
 
 def frequency(path,seconds,hz):
-    raw=subprocess.check_output(['ffmpeg','-v','error','-ss',str(seconds),'-i',str(path),'-t','0.1','-vn','-ac','1','-ar','48000','-f','f32le','pipe:1'])
+    # Decode before selecting the exact PCM window, independently of codec
+    # packet seeking and preroll.
+    raw=subprocess.check_output(['ffmpeg','-v','error','-i',str(path),'-ss',str(seconds),'-t','0.1','-vn','-ac','1','-ar','48000','-f','f32le','pipe:1'])
     values=struct.unpack('<'+'f'*(len(raw)//4),raw);n=len(values)
     return 2/n*math.hypot(sum(v*math.cos(2*math.pi*hz*i/48000) for i,v in enumerate(values)),sum(v*math.sin(2*math.pi*hz*i/48000) for i,v in enumerate(values)))
 

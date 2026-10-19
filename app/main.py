@@ -12,6 +12,7 @@ from app.common.resources import RESOURCE_DIR
 from app.common.style import STYLE, EXTRA_STYLE
 from app.editor.panel import EditorPanel
 from app.common.hotkeys import GlobalHotkeys
+from app.common.environment import configure_windows_dpi_awareness
 
 APP_ID='shenlujian'
 APP_NAME='神录剪'
@@ -24,7 +25,7 @@ class RecorderPanel(RecorderWindow):
         self.host=host
         super().__init__()
         self.setWindowFlags(Qt.Widget)
-        self.setMinimumSize(700,600)
+        self.setMinimumSize(360,480) if sys.platform=='win32' else self.setMinimumSize(700,600)
         for label in self.findChildren(QLabel):
             if label.objectName()=='title':label.setText('录')
         if self.tray:self.tray.hide();self.tray.deleteLater();self.tray=None
@@ -40,7 +41,11 @@ class StudioWindow(QMainWindow):
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(QIcon(str(RESOURCE_DIR/'assets/shenlujian.svg')))
         self.setToolTip(DESCRIPTION)
-        self.resize(1840,1080);self.setMinimumSize(1460,800)
+        self.resize(1840,1080)
+        if sys.platform=='win32':
+            available=QApplication.primaryScreen().availableGeometry()
+            self.setMinimumSize(min(1100,max(720,available.width()-40)),min(640,max(480,available.height()-60)))
+        else:self.setMinimumSize(1460,800)
         self.want_close=False
         QShortcut('F11',self,activated=self.toggle_fullscreen)
         QShortcut('Escape',self,activated=self.leave_fullscreen)
@@ -113,6 +118,7 @@ def main():
     parser.add_argument('--controls-test')
     parser.add_argument('--audio-test')
     parser.add_argument('--test-input')
+    parser.add_argument('--windows-smoke')
     args=parser.parse_args()
     # VAAPI post-processing fails to negotiate CPU RGB frames on this desktop.
     # Use GStreamer's documented per-process ranks; other apps are unaffected.
@@ -120,11 +126,21 @@ def main():
     ranks='avdec_h264:512,avdec_h265:512,avdec_vp9:512,avdec_mpeg4:512,vaapipostproc:0'
     existing=os.environ.get('GST_PLUGIN_FEATURE_RANK','')
     os.environ['GST_PLUGIN_FEATURE_RANK']=(existing+',' if existing else '')+ranks
-    QApplication.setAttribute(Qt.AA_DisableHighDpiScaling)
+    if sys.platform=='win32':
+        configure_windows_dpi_awareness()
+        os.environ.setdefault('QT_MULTIMEDIA_PREFERRED_PLUGINS','windowsmediafoundation')
+        QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
+        QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps)
+        QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    else:QApplication.setAttribute(Qt.AA_DisableHighDpiScaling)
     app=QApplication([sys.argv[0]]);app.setApplicationName(APP_ID);app.setApplicationDisplayName(APP_NAME)
     app.setDesktopFileName(APP_ID);app.setStyle('Fusion')
-    app.setStyleSheet(STYLE.replace('__CHEVRON__',str(RESOURCE_DIR/'assets/chevron.svg'))+EXTRA_STYLE)
+    chevron='"'+(RESOURCE_DIR/'assets/chevron.svg').as_posix().replace('"','%22')+'"'
+    app.setStyleSheet(STYLE.replace('__CHEVRON__',chevron)+EXTRA_STYLE)
     window=StudioWindow();window.showMaximized()
+    if args.windows_smoke:
+        from scripts.windows_smoke import ApplicationSmoke
+        window.check=ApplicationSmoke(window,args.windows_smoke)
     if args.screenshot:QTimer.singleShot(800,lambda:(window.grab().save(args.screenshot),app.exit(0)))
     if args.integration_test:
         if not args.test_input:parser.error('--test-input is required for integration testing')
