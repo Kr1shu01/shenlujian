@@ -287,6 +287,9 @@ def run_smoke(command, report, timeout=145):
     print(json.dumps(result, ensure_ascii=True, indent=2))
     if process.returncode or not result.get('passed'):
         raise RuntimeError('Windows application acceptance check failed')
+    if os.environ.get('GITHUB_ACTIONS'):
+        details = json.dumps(result, ensure_ascii=True).replace('%', '%25')
+        print('::notice title=Windows application smoke passed::' + details, flush=True)
 
 
 def main():
