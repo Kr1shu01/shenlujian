@@ -53,9 +53,10 @@ class ClipRangeTests(unittest.TestCase):
             if measurements[2.3][880]<=.04:
                 index=args.index('-filter_complex')+1;original=args[index]
                 graphs={
-                    'sample_timestamps':original.replace('asetpts=PTS-STARTPTS','asetpts=N/SR/TB'),
-                    'no_async_resampling':original.replace('aresample=48000:async=1:first_pts=0','aresample=48000'),
-                    'no_unity_tempo':original.replace('atempo=1,','anull,'),
+                    'no_output_tempo':original.replace('atempo=1[outa]','anull[outa]'),
+                    'no_limiter':original.replace('alimiter=limit=0.95:level=0:attack=1:release=10','anull'),
+                    'uniform_audio_frames':original.replace('atrim=duration=4.000000000[extra','atrim=duration=4.000000000,asetnsamples=n=1024:p=1[extra'),
+                    'normalized_mix':original.replace('amix=inputs=3:duration=longest:normalize=0:dropout_transition=0','amix=inputs=3:duration=longest:normalize=1:dropout_transition=0,volume=3'),
                 }
                 for name,graph in graphs.items():
                     candidate=root/(name+'.mp4');altered=list(args);altered[index]=graph;altered[-1]=str(candidate)
